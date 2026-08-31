@@ -1,0 +1,130 @@
+1. Авторизация (Логин) и генерация JWT Когда клиент отправляет хэш/пароль через -
+curl:Go-сервер делает запрос к Postgres: SELECT id, password_hash FROM users WHERE username = $1.
+Сервер сравнивает пришедший пароль с хэшем из базы (библиотека golang.org/x/crypto/bcrypt).
+Если всё ок, сервер создает Claims (полезную нагрузку токена) и подписывает её секретным ключом.
+
+
+
+Генерация токена пример 
+
+package main
+
+import (
+	"time"
+	"://github.com" - ссылка на jwt  
+)
+
+var jwtKey = []byte("your_secret_key_dont_share_it") // Секрет сервера
+
+type Claims struct {
+	UserID int `json:"user_id"`
+	jwt.RegisteredClaims
+}
+
+func GenerateToken(userID int) (string, error) {
+	expirationTime := time.Now().Add(15 * time.Minute) // Access токен на 15 минут
+	claims := &Claims{
+		UserID: userID,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(expirationTime),
+		},
+	}
+
+	// Создаем токен с алгоритмом HS256
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	
+	// Подписываем токен нашим секретом
+	return token.SignedString(jwtKey)
+}
+
+
+
+
+
+
+
+Жизненный цикл запросов через curlШаг 1: Инициация сессии (Логин)Клиент шлет данные. 
+Go лезет в Postgres, сверяет хэш и отдает JWT.
+
+curl -X POST http://localhost:8080/api/login \
+     -H "Content-Type: application/json" \
+     -d '{"username": "egor", "password": "supersecurepassword"}'
+
+
+Запрос к защищенному M-1Клиент передает токен. Go-сервер в Middleware парсит его (в Postgres запроса нет).
+
+curl -X GET http://localhost:8080/api/v1/M-1 \
+     -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsIn..."
+
+
+
+
+
+
+
+Так как Go-сервер проверяет только математическую подпись токена и его срок годности, 
+нельзя просто так взять и отозвать JWT (например, если пользователь нажал «Выйти»). 
+Токен будет активен, пока не кончится его ExpiresAt.
+
+Короткий Access Token (15 мин): Смириться с тем, что после логаута токен «живет» еще максимум 15 минут.
+
+Blacklist в Redis/Postgres: При логауте токен пишется в базу заблокированных (Blacklist). 
+Middleware теперь делает быстрый запрос в базу, проверяя, не заблокирован ли токен. 
+Это частично нарушает концепцию stateless, но спасает безопасность.
+
+Использование Refresh-токенов: Access токен делаем на 5 минут, а длинный Refresh-токен храним в Postgres. 
+Для доступа к API проверяется только Access (быстро, без БД), 
+а раз в 5 минут клиент обновляет его через Refresh (с запросом в Postgres).
+
+
+Разница подходов: Stateful (Сессии) vs Stateless (JWT)
+
+Stateful (Сессии в БД/Redis): Состояние хранится на сервере. 
+Токен (Session ID) — это просто случайный случайный ключ от камеры хранения.
+Без самой камеры (базы данных) он бесполезен.
+
+Stateless (JWT): Состояние хранится на клиенте. Токен — это запечатанный и подписанный сервером паспорт. 
+Серверу не нужно искать пользователя в базе, чтобы поверить паспорту, 
+достаточно проверить подлинность печати (сигнатуры) своим секретным ключом.
+
+
+
+Как устроен алгоритм (Step-by-Step)
+
+Клиент делает обычный запрос к методу M-1 через curl, прикрепив старый Access Token.
+Go-сервер (через Middleware) видит, что срок годности токена истек (Token expired), и возвращает ошибку HTTP 401 Unauthorized.
+Клиент перехватывает эту ошибку и вместо того, чтобы выкинуть пользователя на экран логина, делает скрытый запрос на эндпоинт /api/auth/refresh,
+отправляя туда Refresh Token.Go-сервер проверяет Refresh Token в Postgres (stateful-часть).
+Если токен в базе живой и не истек, сервер генерирует новый Access Token (и иногда обновляет сам Refresh Token).
+Клиент сохраняет новые токены и автоматически повторяет свой изначальный запрос к M-1. Для пользователя всё прошло незаметно.
+
+
+
+
+Криптография 
+Симметричные и асимметричные алгоритмы шифрования
+Понятия открытого и закрытого ключей
+Различия в шифровании сообщения и цифровой подписи
+Для чего нужен рефреш токен какой алгоритм атаки он предотвращает
+
+
+Регистрация
+in password and email
+out JWT 
+
+Вход
+in email and password
+out JWT
+
+RefreshToken
+in RefreshToken
+Out JWT 
+
+AuthTest
+in JWT
+out Bool
+
+
+
+v1 
+перенести апишку в папку с эндпоинтами

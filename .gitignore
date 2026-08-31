@@ -1,0 +1,38 @@
+# Секретные данные
+.env
+.env.local
+.env.*.local
+
+# Файлы сборки
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+*.tmp
+
+# Go
+/vendor/
+coverage.out
+*.test
+*.prof
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Бинарные файлы
+/app
+/dist/
+/build/
+/bin/
+
+# Логи
+*.log
+logs/
