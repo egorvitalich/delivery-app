@@ -36,3 +36,5 @@ coverage.out
 # Логи
 *.log
 logs/
+
+programmerHelper
