@@ -69,7 +69,7 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
-	u, err := h.svc.Me(r.Context(), id)
+	u, err := h.svc.GetUser(r.Context(), id)
 	if errors.Is(err, repository.ErrNotFound) {
 		writeErr(w, http.StatusNotFound, "user not found")
 		return

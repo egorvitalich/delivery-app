@@ -45,7 +45,7 @@ func (s *AuthService) Register(ctx context.Context, req models.RegisterRequest) 
 		req.Role = "customer"
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), 12)
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), 12) //здесь должен быть хеш а не пароль
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func (s *AuthService) Login(ctx context.Context, req models.LoginRequest) (*mode
 	return &models.AuthResponse{Token: token, UserID: u.ID, Roles: u.Roles}, nil
 }
 
-func (s *AuthService) Me(ctx context.Context, id int64) (*models.User, error) {
+func (s *AuthService) GetUser(ctx context.Context, id int64) (*models.User, error) {
 	return s.repo.GetByID(ctx, id)
 }
 
